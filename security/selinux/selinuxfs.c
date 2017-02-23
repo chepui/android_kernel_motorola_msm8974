@@ -166,7 +166,7 @@ static ssize_t sel_write_enforce(struct file *file, const char __user *buf,
 	length = -EINVAL;
 	if (sscanf(page, "%d", &new_value) != 1)
 		goto out;
-		new_value = 0;
+
 	if (new_value != selinux_enforcing) {
 		length = task_has_security(current, SECURITY__SETENFORCE);
 		if (length)
@@ -1958,3 +1958,4 @@ void exit_sel_fs(void)
 	unregister_filesystem(&sel_fs_type);
 }
 #endif
+
