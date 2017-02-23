@@ -153,6 +153,7 @@ static int boost_adjust_notify(struct notifier_block *nb, unsigned long val, voi
 			break;
 
 		min = max(b_min, ib_min);
+		min = min(min, policy->max);
 
 		pr_debug("CPU%u policy min before boost: %u kHz\n",
 			 cpu, policy->min);
@@ -218,7 +219,7 @@ static void do_input_boost_rem(struct work_struct *work)
 
 static int boost_mig_sync_thread(void *data)
 {
-	int dest_cpu = (int) data;
+	int dest_cpu = (long) data;
 	int src_cpu, ret;
 	struct cpu_sync *s = &per_cpu(sync_info, dest_cpu);
 	struct cpufreq_policy dest_policy;
@@ -248,14 +249,11 @@ static int boost_mig_sync_thread(void *data)
 		if (ret)
 			continue;
 
-		if (dest_policy.cur >= src_policy.cur ) {
-			pr_debug("No sync. CPU%d@%dKHz >= CPU%d@%dKHz\n",
-				 dest_cpu, dest_policy.cur, src_cpu, src_policy.cur);
+		if (src_policy.cur == src_policy.cpuinfo.min_freq) {
+			pr_debug("No sync. Source CPU%d@%dKHz at min freq\n",
+                                 src_cpu, src_policy.cur);
 			continue;
 		}
-
-		if (sync_threshold && (dest_policy.cur >= sync_threshold))
-			continue;
 
 		cancel_delayed_work_sync(&s->boost_rem);
 		if (sync_threshold) {
@@ -299,6 +297,10 @@ static int boost_migration_notify(struct notifier_block *nb,
 	struct cpu_sync *s = &per_cpu(sync_info, dest_cpu);
 
 	if (!boost_ms)
+		return NOTIFY_OK;
+
+	/* Avoid deadlock in try_to_wake_up() */
+	if (s->thread == current)
 		return NOTIFY_OK;
 
 	pr_debug("Migration: CPU%d --> CPU%d\n", (int) arg, (int) dest_cpu);
@@ -454,8 +456,8 @@ static int cpu_boost_init(void)
 		atomic_set(&s->being_woken, 0);
 		spin_lock_init(&s->lock);
 		INIT_DELAYED_WORK(&s->boost_rem, do_boost_rem);
-		s->thread = kthread_run(boost_mig_sync_thread, (void *)cpu,
-					"boost_sync/%d", cpu);
+		s->thread = kthread_run(boost_mig_sync_thread,
+				(void *) (long)cpu, "boost_sync/%d", cpu);
 		set_cpus_allowed(s->thread, *cpumask_of(cpu));
 	}
 	cpufreq_register_notifier(&boost_adjust_nb, CPUFREQ_POLICY_NOTIFIER);
@@ -466,3 +468,4 @@ static int cpu_boost_init(void)
 	return 0;
 }
 late_initcall(cpu_boost_init);
+
