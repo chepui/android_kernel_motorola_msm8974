@@ -30,7 +30,6 @@
 #include <asm/cputime.h>
 #include <linux/powersuspend.h>
 
-
 #define cputime64_add(__a, __b) ((__a) + (__b))
 #define cputime64_sub(__a, __b) ((__a) - (__b))
 
@@ -50,7 +49,7 @@ static unsigned int awake_ideal_freq;
  * that practically when sleep_ideal_freq==0 the awake_ideal_freq is used
  * also when suspended).
  */
-#define DEFAULT_SLEEP_IDEAL_FREQ 787200 /*I Think 782mhz are good :D*/
+#define DEFAULT_SLEEP_IDEAL_FREQ 600000 /*I Think 600mhz are good :D*/
 static unsigned int sleep_ideal_freq;
 
 /*
